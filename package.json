@@ -1,0 +1,21 @@
+{
+  "name": "attention-lab",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4310",
+    "build": "next build",
+    "start": "node tools/serve.mjs --port 4310",
+    "serve": "npm run build && npm start",
+    "test": "node tests/run.mjs && node tests/training.mjs && node tools/contrast.mjs",
+    "test:unit": "node tests/run.mjs",
+    "test:contrast": "node tools/contrast.mjs",
+    "test:e2e": "node tests/e2e.mjs http://localhost:4310/",
+    "icons": "python tools/make-icons.py"
+  },
+  "dependencies": {
+    "next": "^15.5.28",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "注意力工作台 · Attention Lab",
+  "short_name": "注意力",
+  "description": "处理速度热身 + 分心感知专注块。数据只存在你自己的设备上。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1712",
+  "theme_color": "#1a1712",
+  "categories": ["health", "productivity", "education"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

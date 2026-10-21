@@ -1,0 +1,61 @@
+name: deploy
+
+# Template. Two things to change before it will work:
+#   1. repo  -> the repository name (it becomes the base path on Pages)
+#   2. the BASE_PATH values below -> "/<repo>"
+#
+# Why BASE_PATH matters: GitHub Pages serves a project from
+# https://<user>.github.io/<repo>/, and Next emits root-absolute asset URLs.
+# Without a base path every stylesheet and script 404s, and the page renders
+# as unstyled text — which looks like a broken app rather than a config miss.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Gate the deploy on the logic tests: publishing a build whose drift or
+      # difficulty accounting is wrong is worse than not publishing.
+      - run: npm test
+
+      - run: npm run build
+        env:
+          BASE_PATH: /attention-lab
+          NEXT_PUBLIC_BASE_PATH: /attention-lab
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

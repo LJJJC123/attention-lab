@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>pending</title></head>
+<body>
+<!-- Same-origin harness: iframes the real app and drives its DOM exactly as a
+     user would. Copied into public/ by tests/e2e.mjs, then removed. -->
+<iframe id="app" src="/" style="width:1280px;height:900px;border:0"></iframe>
+<pre id="out">pending</pre>
+<script>
+const log = [];
+const errs = [];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function rec(name, ok, extra) { log.push({ name, ok: !!ok, extra: extra == null ? '' : String(extra) }); }
+function finish() {
+  const failed = log.filter((l) => !l.ok);
+  document.getElementById('out').textContent = 'RESULT ' + JSON.stringify({
+    total: log.length, failed: failed.length, log,
+  }) + ' ERRS ' + JSON.stringify(errs || []);
+  document.title = 'done:' + log.length + ':' + failed.length;
+}
+
+(async () => {
+  const f = document.getElementById('app');
+
+  try {
+    await new Promise((res, rej) => { f.onload = res; f.onerror = rej; });
+    let w = f.contentWindow, d = f.contentDocument;
+    // surface any React/runtime error instead of silently reading an empty DOM
+    w.addEventListener('error', (e) => errs.push('error: ' + (e.message || '')));
+    w.addEventListener('unhandledrejection', (e) => errs.push('rejection: ' + e.reason));
+    const origErr = w.console.error;
+    w.console.error = function (...a) { errs.push('console: ' + a.map(String).join(' ').slice(0, 200)); origErr.apply(w.console, a); };
+    // resolve the live document every call: reload() replaces it
+    const q = (s) => f.contentDocument.querySelector(s);
+    const byText = (sel, t) => [...f.contentDocument.querySelectorAll(sel)].find((e) => e.textContent.trim() === t);
+
+    /* The app mirrors the active tab into the URL (?t=report) so the report is
+     * shareable. The flip side: reload() returns to whatever tab was last
+     * visited, not to 今天. Every reset in this harness therefore has to put
+     * the app back on 今天 explicitly — otherwise the home console and the
+     * warm-up stage simply aren't in the DOM and a dozen assertions fail for a
+     * reason that has nothing to do with what they are checking. */
+    const goHome = async () => {
+      const t = byText('button', '今天');
+      if (t) { t.click(); await sleep(450); }
+    };
+
+    // Start from a clean slate: a previous run's block would make the home
+    // screen skip its intro and every later assertion would read the wrong DOM.
+    try {
+      w.localStorage.removeItem('attnlab.v1');
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+      // reload swaps the document; re-bind before reading anything
+      w = f.contentWindow; d = f.contentDocument;
+    } catch (e) { errs.push('reset: ' + (e && e.message)); }
+    await sleep(1200);
+    await goHome();
+
+    // ---- 1. warm-up: answer every trial by comparing the two svg paths ----
+    // Select the control by class, not by label text. The home page now shows
+    // the chosen duration inside the button ("开始 25 分钟"), and a text match
+    // on a fixed string fails the moment that label changes — silently skipping
+    // the click and ending the whole run after one assertion.
+    let startBtn = q('.console-go');
+    if (startBtn) startBtn.click();
+    await sleep(500);
+    let warmBtn = byText('button', '开始热身');
+    rec('warm-up intro renders', !!warmBtn);
+    if (!warmBtn) return finish();
+    warmBtn.click();
+
+    let same = 0, diff = 0, noStimulus = 0, guard = 0;
+    const doneBtn = () => byText('button', '进入专注块');
+    while (!doneBtn() && guard++ < 400) {
+      const stage = q('.stage');
+      if (stage && !stage.disabled) {
+        const paths = [...stage.querySelectorAll('svg path')].map((p) => p.getAttribute('d'));
+        if (paths.length === 2) {
+          const isSame = paths[0] === paths[1];
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: isSame ? 'f' : 'j', bubbles: true }));
+          isSame ? same++ : diff++;
+        } else noStimulus++;
+      }
+      await sleep(40);
+    }
+    rec('warm-up completed 60 trials', !!doneBtn(), 'answered=' + (same + diff) + ' guard=' + guard);
+    rec('both same and diff trials appeared', same > 0 && diff > 0, 'same=' + same + ' diff=' + diff);
+
+    // ---- 2. metrics are real numbers ----
+    const metrics = [...f.contentDocument.querySelectorAll('.metric')].map((m) => m.querySelector('.v').textContent);
+    rec('done screen shows 4 metrics', metrics.length === 4, metrics.join(' | '));
+    rec('accuracy is numeric', /^\d+%$/.test(metrics[0] || ''), metrics[0]);
+    rec('window value is numeric ms', /^\d+ms$/.test(metrics[2] || ''), metrics[2]);
+    rec('throughput is numeric', /^\d+$/.test(metrics[3] || ''), metrics[3]);
+    if (!doneBtn()) return finish();
+
+    // ---- 3. focus block ----
+    doneBtn().click();
+    await sleep(500);
+    const go = q('.focus-go');
+    rec('focus block pre-start renders', !!go);
+    // the phone has to be offered two honest modes, not one silently broken one
+    const modeBtns = [...f.contentDocument.querySelectorAll('.seg button')];
+    rec('focus block offers a screen and a face-down mode',
+        modeBtns.length === 2 && /亮屏/.test(modeBtns[0].textContent) && /扣屏/.test(modeBtns[1].textContent),
+        JSON.stringify(modeBtns.map((b) => b.textContent)));
+    // face-down must state *why* it does not measure, not just that it doesn't
+    const faceBtn = [...f.contentDocument.querySelectorAll('.seg button')].find((b) => /扣屏/.test(b.textContent));
+    if (faceBtn) faceBtn.click();
+    await sleep(250);
+    rec('face-down mode explains the measurement gap',
+        /分不清|一定是假的|看不见/.test(f.contentDocument.body.innerText));
+    if (modeBtns[0]) modeBtns[0].click();   // back to screen mode for the run below
+    await sleep(200);
+    if (go) { go.click(); await sleep(1200); }
+    const clock1 = q('.clock');
+    rec('countdown clock renders', !!clock1 && /^\d/.test(clock1.textContent), clock1 && clock1.textContent);
+    rec('drift chip present', !!q('.drift-chip'));
+
+    // ---- 4. commit ----
+    const end = byText('button', '结束并记录');
+    rec('end button present', !!end);
+    if (end) { end.click(); await sleep(600); }
+    const h2 = q('.card-head h2');
+    rec('summary screen renders', !!h2 && /结束/.test(h2.textContent), h2 && h2.textContent);
+
+    // ---- 5. persistence shape ----
+    let parsed = null;
+    try { parsed = JSON.parse(w.localStorage.getItem('attnlab.v1')); } catch (e) {}
+    rec('localStorage has valid schema', !!parsed && parsed.v === 1 && Array.isArray(parsed.blocks));
+    const b = parsed && parsed.blocks[0];
+    rec('exactly one block stored', parsed && parsed.blocks.length === 1, 'n=' + (parsed && parsed.blocks.length));
+    rec('block has numeric focusMs', b && typeof b.focusMs === 'number' && b.focusMs > 0, b && 'focusMs=' + b.focusMs);
+    rec('block has drift array', b && Array.isArray(b.drift));
+    rec('block carries warm-up summary', b && b.warm && b.warm.trials === 60, b && b.warm && 'trials=' + b.warm.trials);
+    rec('warm-up accuracy is perfect (bot answers correctly)', b && b.warm && b.warm.accuracy === 1,
+        b && b.warm && 'acc=' + b.warm.accuracy);
+
+    // ---- 6. report from real data ----
+    const tabs = [...f.contentDocument.querySelectorAll('.tab')].map((e) => e.textContent.trim());
+    rec('nav exposes all three tabs', tabs.length === 3, JSON.stringify(tabs));
+    const rpt = byText('button', '报告');
+    rec('report tab is clickable', !!rpt);
+    if (rpt) { rpt.click(); await sleep(700); }
+    rec('report tab becomes current', !!f.contentDocument.querySelector('.tab[aria-current]'));
+    rec('report draws bars', f.contentDocument.querySelectorAll('.bars .bar').length > 0,
+        'bars=' + f.contentDocument.querySelectorAll('.bars .bar').length);
+    rec('report produces advice', f.contentDocument.querySelectorAll('.advice').length > 0,
+        'advice=' + f.contentDocument.querySelectorAll('.advice').length);
+    rec('report lists the block', f.contentDocument.querySelectorAll('.table tbody tr').length > 0,
+        'rows=' + f.contentDocument.querySelectorAll('.table tbody tr').length);
+
+    // ---- 6b. face-down honesty: an unmeasured block must not read as 0% drift ----
+    // Regression guard for the worst possible failure mode of this product: a
+    // block where drift was never measured showing a confident 0%.
+    try {
+      const st = JSON.parse(w.localStorage.getItem('attnlab.v1'));
+      st.blocks.push({
+        id: 'facedown-test', day: st.blocks[0].day, startedAt: st.blocks[0].startedAt,
+        targetMin: 25, focusMs: 1500000, drift: [], warm: null, driftMode: 'off',
+      });
+      w.localStorage.setItem('attnlab.v1', JSON.stringify(st));
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+    } catch (e) { errs.push('facedown seed: ' + (e && e.message)); }
+    await sleep(1000);
+    const rpt2 = byText('button', '报告');
+    if (rpt2) { rpt2.click(); await sleep(700); }
+    const rtxt = f.contentDocument.body.innerText;
+    rec('unmeasured blocks are labelled, not shown as 0%',
+        /未测量|扣屏/.test(rtxt) && !/切屏分心占比\s*0%/.test(rtxt),
+        (rtxt.match(/切屏分心占比[^\n]{0,12}/) || [''])[0]);
+    rec('report says how many blocks were not measured', /没有测量切屏|不计入/.test(rtxt));
+    // read the cell, not body.innerText: the table sits in an overflow-x
+    // container, so text outside its visible box is not part of innerText.
+    const cells = [...f.contentDocument.querySelectorAll('.table tbody td')]
+      .map((td) => td.textContent.trim());
+    rec('per-block table marks the facedown row',
+        cells.some((c) => c === '未测量'), JSON.stringify(cells.slice(0, 12)));
+    // Regression: the table once rendered per-day aggregates, so every
+    // per-block column read undefined ("25′" with no number, blank warm-up).
+    rec('per-block table lists one row per block, with real values',
+        f.contentDocument.querySelectorAll('.table tbody tr').length === 2
+        && cells.some((c) => /^\d+′$/.test(c))
+        && cells.some((c) => /\d+ms/.test(c)),
+        'rows=' + f.contentDocument.querySelectorAll('.table tbody tr').length);
+
+    // ---- 7. no fabricated claims ----
+    const about = byText('button', '关于');
+    if (about) { about.click(); await sleep(500); }
+    const atxt = f.contentDocument.body.innerText;
+    rec('no brain-age score anywhere', !/大脑年龄\s*[:：]?\s*\d/.test(atxt));
+    rec('honesty caveat is visible', /看不见|子集|边界|不代表/.test(atxt));
+    rec('about explains the ACTIVE evidence', /ACTIVE/.test(atxt));
+    rec('about explains what drift cannot measure on a phone',
+        /扣屏|分不出来|看不见/.test(atxt));
+    // the only 预防/治愈 wording allowed is a disclaimer or a refusal, never a
+    // promise. Look at a window wide enough to capture the 不代表 prefix.
+    const prevention = atxt.match(/.{0,24}预防.{0,14}/g) || [];
+    rec('prevention is only ever disclaimed, never promised',
+        prevention.every((s) => /不代表|不做|不会/.test(s)), JSON.stringify(prevention));
+    rec('about admits the limits', /不代表|不要|不做/.test(atxt));
+
+    // ---- 7b. PWA: installable, offline-capable, safe-area aware ----
+    const mani = f.contentDocument.querySelector('link[rel="manifest"]');
+    rec('manifest is linked', !!mani, mani && mani.getAttribute('href'));
+    const mres = await fetch(mani ? mani.getAttribute('href') : '/manifest.webmanifest').then((r) => r.json()).catch(() => null);
+    rec('manifest declares standalone + icons',
+        !!mres && mres.display === 'standalone' && Array.isArray(mres.icons) && mres.icons.length >= 2,
+        mres && mres.display);
+    const iconOk = await Promise.all((mres ? mres.icons : []).map((i) =>
+      fetch(i.src).then((r) => r.ok).catch(() => false)));
+    rec('every declared icon is actually served', iconOk.length > 0 && iconOk.every(Boolean), iconOk.join(','));
+    const swOk = await fetch('/sw.js').then((r) => r.ok).catch(() => false);
+    rec('service worker is served', swOk);
+    const vp = f.contentDocument.querySelector('meta[name="viewport"]');
+    rec('viewport opts into the safe area (notch / home bar)',
+        !!vp && /viewport-fit=cover/.test(vp.getAttribute('content') || ''),
+        vp && vp.getAttribute('content'));
+    rec('apple touch icon is linked for iOS home screen',
+        !!f.contentDocument.querySelector('link[rel="apple-touch-icon"]'));
+
+    // ---- 8. responsive: no horizontal overflow at the four gates ----
+    const bad = [];
+    for (const wpx of [320, 375, 414, 768]) {
+      f.style.width = wpx + 'px';
+      await sleep(120);
+      const over = [...f.contentDocument.querySelectorAll('*')].filter((e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.right > wpx + 1;
+      }).slice(0, 3).map((e) => e.tagName + '.' + String(e.className).slice(0, 24));
+      if (over.length) bad.push(wpx + 'px->' + over.join(','));
+    }
+    f.style.width = '';
+    rec('no horizontal overflow at 320/375/414/768', bad.length === 0, bad.join(' | '));
+
+    // ---- 8c. the answer buttons actually answer a trial ----
+    // Guard against a regression where the buttons render but their pointer
+    // handler is dead: the warm-up would then be unfinishable on a phone.
+    try {
+      w.localStorage.removeItem('attnlab.v1');
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+    } catch (e) { errs.push('phone reset: ' + (e && e.message)); }
+    await sleep(1200);
+    await goHome();
+    const startPhone = q('.console-go');
+    if (startPhone) {
+      startPhone.click();
+      await sleep(400);
+      const wb2 = byText('button', '开始热身');
+      if (wb2) wb2.click();
+      await sleep(900);
+      const stg = q('.stage');
+      const btns = [...f.contentDocument.querySelectorAll('.answer')];
+      if (stg && btns.length === 2 && !stg.disabled) {
+        const before = (q('.hud .cell .v') || {}).textContent;
+        // dispatch a real pointerdown the way a finger would
+        const mk = (type, x) => {
+          const E = w.PointerEvent || w.MouseEvent;
+          const ev = new E(type, { bubbles: true, cancelable: true, clientX: x, clientY: 400, pointerId: 1 });
+          btns[1].dispatchEvent(ev);
+        };
+        mk('pointerdown', 350);
+        await sleep(400);
+        const after = (q('.hud .cell .v') || {}).textContent;
+        rec('touch answer button advances the warm-up', before !== after, before + ' -> ' + after);
+      } else {
+        rec('touch answer button advances the warm-up', false, 'stage/buttons not ready');
+      }
+      rec('answer buttons are real buttons for keyboards and AT',
+          btns.length === 2 && btns.every((x) => x.tagName === 'BUTTON' && x.getAttribute('aria-label')));
+    }
+
+    // ---- 9. a11y basics (fresh load, so the stage actually exists) ----
+    // after finishing, 今天 shows the summary — that is correct behaviour, so
+    // reload with cleared storage to reach a state where the stage is on screen
+    try {
+      w.localStorage.removeItem('attnlab.v1');
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+    } catch (e) { errs.push('a11y reset: ' + (e && e.message)); }
+    await sleep(1200);
+    w = f.contentWindow;
+    // The app now mirrors the active tab into the URL (?t=report), which makes
+    // the report shareable — and means a reload returns to whatever tab was
+    // last visited. This harness has just been sitting on 报告 / 关于, so it must
+    // navigate back to 今天 explicitly. Relying on the reload default is what
+    // silently left the home console off screen and failed six assertions.
+    await goHome();
+
+    // Select the control by class, not by text: the page headline is now also
+    // "开始今天", so a text search can silently match the <h1> instead of the
+    // button and keep passing after the control is renamed or removed.
+    const startAgain = q('.console-go');
+    rec('home offers the start action', !!startAgain && startAgain.tagName === 'BUTTON');
+
+    // The reason the home page was restructured: on a phone the start action
+    // must be reachable without scrolling past any prose. Lock the geometry,
+    // not the styling — if a future change puts the explanation back on top,
+    // this fails.
+    try {
+      f.style.width = '375px';
+      await sleep(350);
+      const goRect = q('.console-go').getBoundingClientRect();
+      const proseTop = q('.console-aside').getBoundingClientRect().top;
+      rec('start button sits in the first phone screen', goRect.bottom <= 700,
+          'bottom=' + Math.round(goRect.bottom));
+      rec('start button is above the explanatory prose', goRect.bottom <= proseTop,
+          'btn=' + Math.round(goRect.bottom) + ' prose=' + Math.round(proseTop));
+      rec('start button is a large touch target', goRect.height >= 44,
+          Math.round(goRect.height) + 'px');
+      // the measurement grid is the instrument cue this build added
+      const grid = w.getComputedStyle(w.document.body, '::after');
+      rec('measurement grid is present', grid.backgroundImage !== 'none');
+      f.style.width = '100%';
+      await sleep(200);
+    } catch (e) { errs.push('console geometry: ' + (e && e.message)); }
+
+    if (startAgain) {
+      startAgain.click();
+      await sleep(500);
+      const wb = byText('button', '开始热身');
+      if (wb) wb.click();
+      await sleep(900);
+      rec('stage has an accessible label', !!q('.stage[aria-label]'));
+      rec('stage is a real button for keyboards', q('.stage') && q('.stage').tagName === 'BUTTON');
+      rec('every tab is a button', f.contentDocument.querySelectorAll('button.tab').length === 3,
+          'n=' + f.contentDocument.querySelectorAll('button.tab').length);
+      rec('nav tabs expose aria-current', !!f.contentDocument.querySelector('.tab[aria-current]'));
+    }
+
+    // ---- 8b. phone: real device viewports, touch targets, answer buttons ----
+    // Width alone is not a phone: the thing that breaks on a phone is a control
+    // that falls below the fold or a target a thumb cannot hit. Both are
+    // measured against a real phone viewport (dvh included, which the app uses).
+    const PHONES = [
+      { name: 'iPhone SE', w: 375, h: 667 },
+      { name: 'iPhone 14', w: 390, h: 844 },
+      { name: 'Android small', w: 360, h: 800 },
+    ];
+    const phoneBad = [];
+    for (const p of PHONES) {
+      f.style.width = p.w + 'px';
+      f.style.height = p.h + 'px';
+      await sleep(200);
+
+      // stage must stay square and fit: the answer buttons below it are what
+      // end the block, so a stage that pushes them off-screen is fatal.
+      const stage = q('.stage');
+      if (stage) {
+        const r = stage.getBoundingClientRect();
+        if (Math.abs(r.width - r.height) > 2) phoneBad.push(p.name + ' stage not square ' + Math.round(r.width) + 'x' + Math.round(r.height));
+        if (r.bottom > p.h) phoneBad.push(p.name + ' stage past viewport bottom ' + Math.round(r.bottom));
+      } else {
+        phoneBad.push(p.name + ' no stage');
+      }
+
+      // both answer buttons must be visible and thumb-sized
+      const answers = [...f.contentDocument.querySelectorAll('.answer')];
+      if (answers.length !== 2) {
+        phoneBad.push(p.name + ' expected 2 answer buttons, got ' + answers.length);
+      }
+      for (const a of answers) {
+        const r = a.getBoundingClientRect();
+        if (r.height < 44) phoneBad.push(p.name + ' answer target ' + Math.round(r.height) + 'px < 44px');
+        if (r.bottom > p.h + 1) phoneBad.push(p.name + ' answer button below fold ' + Math.round(r.bottom));
+        if (r.left < 0 || r.right > p.w + 1) phoneBad.push(p.name + ' answer button off-screen');
+      }
+    }
+    f.style.width = '';
+    f.style.height = '';
+    rec('phone viewports: stage square, answer buttons reachable', phoneBad.length === 0, phoneBad.join(' | '));
+
+    // ---- 9b. face-down block: the HUD must say "未测量", never "0 次" ----
+    // Run in isolation: skip the warm-up, pick face-down, start, read the HUD.
+    try {
+      w.localStorage.removeItem('attnlab.v1');
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+      // reload replaces the window: every later read must go through the new one
+      w = f.contentWindow;
+    } catch (e) { errs.push('facedown reset: ' + (e && e.message)); }
+    await goHome();
+    await sleep(1200);
+    try {
+      const s3 = q('.console-go');
+      if (s3) s3.click();
+      await sleep(400);
+      const skip = byText('button', '跳过，直接开始');
+      if (skip) skip.click();
+      await sleep(500);
+      const modes = [...f.contentDocument.querySelectorAll('.seg button')];
+      rec('skipping the warm-up reaches the focus block', modes.length === 2, 'modes=' + modes.length);
+      const facedown = modes.find((b) => /扣屏/.test(b.textContent));
+      if (facedown) facedown.click();
+      await sleep(300);
+      const go2 = q('.focus-go');
+      if (go2) { go2.click(); await sleep(1000); }
+      const htext = f.contentDocument.body.innerText;
+      rec('face-down HUD shows 未测量 rather than 0 次',
+          /未测量/.test(htext) && !/切屏\s*0 次/.test(htext),
+          (htext.match(/切屏[^\n]{0,10}/) || [''])[0]);
+      rec('face-down chip says it is not recording drift', /不记录切屏/.test(htext));
+      const end2 = byText('button', '结束并记录');
+      if (end2) { end2.click(); await sleep(700); }
+      rec('face-down summary refuses to show a drift count',
+          /未测量切屏/.test(f.contentDocument.body.innerText));
+      const st2 = JSON.parse(w.localStorage.getItem('attnlab.v1') || '{}');
+      const lastB = st2.blocks && st2.blocks[st2.blocks.length - 1];
+      rec('face-down block is persisted with driftMode off',
+          !!lastB && lastB.driftMode === 'off' && Array.isArray(lastB.drift) && lastB.drift.length === 0,
+          lastB && 'mode=' + lastB.driftMode);
+    } catch (e) {
+      rec('face-down block flow completed without throwing', false, e && (e.stack || e.message));
+    }
+
+    // ---- 9c. quitting a live session must not corrupt or silently discard ----
+    // Regression guards for three separate defects:
+    //   1. Switching tabs mid-block unmounted the component holding the clock,
+    //      silently discarding the session (beforeunload does not fire for an
+    //      internal re-render). Navigation must be locked while a session runs.
+    //   2. The focus block's 取消 only cleared `block`, leaving phase==='focus'
+    //      with block===null; the next render read `block.warm` and white-screened.
+    //   3. There was no way out of a live warm-up except forward into a block.
+    try {
+      w.localStorage.removeItem('attnlab.v1');
+      w.location.reload();
+      await new Promise((res) => { f.onload = res; setTimeout(res, 6000); });
+      w = f.contentWindow;
+    } catch (e) { errs.push('quit reset: ' + (e && e.message)); }
+    await goHome();
+    await sleep(1000);
+
+    // -- cancel from the focus block's pre-start screen returns home, not a crash
+    const qs = q('.console-go');
+    if (qs) qs.click();
+    await sleep(400);
+    const qskip = byText('button', '跳过，直接开始');
+    if (qskip) qskip.click();
+    await sleep(500);
+    const cancelBtn = byText('button', '取消');
+    rec('focus block pre-start offers a way out', !!cancelBtn);
+    if (cancelBtn) { cancelBtn.click(); await sleep(600); }
+    // The white-screen regression: rendering anything at all proves block.warm
+    // was not read off a null block.
+    rec('cancelling the focus block returns home instead of white-screening',
+        !!q('.console-go') && errs.length === 0, errs.join(' | ') || 'no runtime errors');
+
+    // -- a live warm-up locks the other tabs
+    if (q('.console-go')) q('.console-go').click();
+    await sleep(400);
+    const qwb = byText('button', '开始热身');
+    if (qwb) qwb.click();
+    await sleep(900);
+    const exitWarm = q('.warm-exit');
+    rec('a running warm-up offers an exit', !!exitWarm);
+    const lockedTabs = [...f.contentDocument.querySelectorAll('.tab')]
+      .filter((b) => b.getAttribute('aria-disabled') === 'true');
+    rec('navigation is locked while a session is live',
+        lockedTabs.length === 2, 'locked=' + lockedTabs.length);
+    // clicking a locked tab must be a no-op, not a session wipe
+    const stageBefore = !!q('.stage');
+    const rptLocked = [...f.contentDocument.querySelectorAll('.tab')].find((b) => b.textContent.trim() === '报告');
+    if (rptLocked) { rptLocked.click(); await sleep(500); }
+    rec('a locked tab cannot discard the running session',
+        stageBefore && !!q('.stage'), 'stage=' + !!q('.stage'));
+
+    // -- abandoning from the warm-up writes nothing
+    if (exitWarm) { exitWarm.click(); await sleep(600); }
+    const stAfterAbort = w.localStorage.getItem('attnlab.v1');
+    rec('abandoning the warm-up writes no data',
+        !stAfterAbort || JSON.parse(stAfterAbort).blocks.length === 0,
+        stAfterAbort ? 'blocks=' + JSON.parse(stAfterAbort).blocks.length : 'no key');
+    rec('abandoning the warm-up returns to the home console', !!q('.console-go'));
+
+    // -- the quit dialog offers two distinguishable answers
+    if (q('.console-go')) q('.console-go').click();
+    await sleep(400);
+    const qskip2 = byText('button', '跳过，直接开始');
+    if (qskip2) qskip2.click();
+    await sleep(500);
+    const go3 = q('.focus-go');
+    if (go3) { go3.click(); await sleep(1200); }
+    const quit = q('.focus-quit');
+    rec('a running focus block offers an exit', !!quit);
+    if (quit) { quit.click(); await sleep(500); }
+    const dlg = q('.quit-ask');
+    rec('quitting asks before discarding', !!dlg && dlg.getAttribute('role') === 'dialog');
+    rec('the quit dialog offers both keep and drop',
+        !!byText('button', '结束并记录') && !!byText('button', '放弃，不记录'));
+    rec('the quit dialog can be dismissed back to the block',
+        !!byText('button', '继续专注'));
+    // the dialog must state how long has been banked, or the choice is blind
+    rec('the quit dialog states the time already spent',
+        dlg ? /已专注/.test(dlg.textContent) : false,
+        dlg ? (dlg.textContent.match(/已专注[^已]*/) || [''])[0].trim() : '');
+    // Escape is the keyboard way back out and must not lose the block
+    w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(400);
+    rec('Escape dismisses the quit dialog without ending the block',
+        !q('.quit-ask') && !!q('.clock'));
+
+    // -- abandoning mid-block writes nothing at all
+    if (q('.focus-quit')) { q('.focus-quit').click(); await sleep(400); }
+    const drop = byText('button', '放弃，不记录');
+    if (drop) { drop.click(); await sleep(700); }
+    const stDropped = w.localStorage.getItem('attnlab.v1');
+    rec('abandoning a focus block stores no block',
+        !stDropped || JSON.parse(stDropped).blocks.length === 0,
+        stDropped ? 'blocks=' + JSON.parse(stDropped).blocks.length : 'no key');
+    rec('abandoning returns to the home console', !!q('.console-go'));
+    rec('no runtime errors during the quit flows', errs.length === 0, errs.join(' | '));
+
+    finish();
+  } catch (e) {
+    rec('harness completed without throwing', false, e && (e.stack || e.message));
+    finish();
+  }
+})();
+</script>
+</body>
+</html>

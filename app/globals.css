@@ -1,0 +1,672 @@
+/* Hallmark · genre: atmospheric · macrostructure: Workbench · theme: Midnight
+ * enrichment: none (typography + CSS-art) · nav: N5 floating pill · footer: Ft5 statement
+ * anchor hue: warm amber 78deg
+ * @import must sit above every rule per the token contract. */
+@import '../tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* gate 34: clip, never hidden — hidden would kill position:sticky nav */
+  overflow-x: clip;
+}
+
+html {
+  /* iOS Safari's dynamic viewport unit. 100vh on a phone is the *tallest*
+   * viewport, so a full-height layout either overflows or jumps when the
+   * address bar collapses. dvh tracks the visible area. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--paper-0);
+  color: var(--ink-1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  /* Stop the rubber-band scroll revealing a white strip under the dark canvas
+   * on iOS, and kill the tap flash that makes a fast trial feel broken. */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* atmospheric canvas: two diffuse warm blooms, fixed, no animation */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60vmax 60vmax at 78% -8%, oklch(76% 0.145 78 / 0.13), transparent 62%),
+    radial-gradient(48vmax 48vmax at 8% 104%, oklch(52% 0.13 32 / 0.10), transparent 60%);
+}
+
+/* Font stacks now live in tokens.css only. This block used to re-declare
+ * --font-sans / --font-mono-stack with the never-loaded 'Inter', which silently
+ * overrode whatever tokens.css defined — one more place to forget to update. */
+
+h1, h2, h3 { margin: 0; font-weight: 600; font-style: normal; overflow-wrap: anywhere; }
+h1 { font-size: var(--text-3xl); letter-spacing: -0.03em; line-height: 1.15; }
+h2 { font-size: var(--text-xl); letter-spacing: -0.02em; line-height: 1.25; }
+h3 { font-size: var(--text-lg); letter-spacing: -0.01em; }
+p { margin: 0; overflow-wrap: anywhere; }
+b, strong { font-weight: 600; }
+
+.app { position: relative; z-index: 1; min-height: 100dvh; display: flex; flex-direction: column; }
+.wrap { width: min(68rem, 100% - var(--space-6)); margin-inline: auto; }
+.narrow { width: min(46rem, 100% - var(--space-6)); margin-inline: auto; }
+
+/* ---- nav: N5 floating pill ---- */
+.nav {
+  position: sticky;
+  top: var(--space-3);
+  z-index: 20;
+  margin-top: var(--space-4);
+  /* Keep the pill clear of the notch / status bar when installed to home screen. */
+  padding-top: env(safe-area-inset-top);
+}
+.nav-in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: oklch(19.5% 0.014 78 / 0.86);
+  border: var(--rule);
+  backdrop-filter: blur(14px);
+  width: fit-content;
+  margin-inline: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-in::-webkit-scrollbar { display: none; }
+
+.tab {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.tab:hover { color: var(--ink-1); background: oklch(100% 0 0 / 0.06); }
+.tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tab[aria-current='page'] { background: var(--accent); color: var(--on-accent); }
+/* Locked during a live session: dimmed but still legible, and deliberately not
+   `opacity` alone — the control must keep enough contrast to be readable, so
+   the disabled state is carried by colour and the cursor as well. */
+.tab.locked, .tab[aria-disabled='true'] {
+  color: var(--ink-3);
+  cursor: not-allowed;
+  background: transparent;
+}
+.tab.locked:hover, .tab[aria-disabled='true']:hover { color: var(--ink-3); background: transparent; }
+
+main { flex: 1; padding-block: var(--space-7) var(--space-8); }
+
+/* ---- footer: Ft5 statement ---- */
+.foot {
+  border-top: 1px solid oklch(100% 0 0 / 0.08);
+  padding-block: var(--space-6);
+  /* The home indicator sits over the bottom of the page; without this the
+   * statement's last line is the one thing a thumb can never scroll clear. */
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+}
+.foot p { color: var(--ink-3); font-size: var(--text-sm); max-width: 42rem; }
+
+/* ---- buttons ----
+ * The primary button is the one element that stays square-cornered and
+ * shadowed: it is the thing you press, so it comes forward off the panel plane. */
+.btn {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.btn:hover { box-shadow: var(--shadow-glow); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.btn:active { transform: translateY(1px); box-shadow: none; }
+.btn[disabled] { opacity: 0.42; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn.ghost { background: transparent; border-color: oklch(100% 0 0 / 0.16); color: var(--ink-2); }
+.btn.ghost:hover { border-color: oklch(100% 0 0 / 0.3); color: var(--ink-1); }
+.btn.lg { padding: var(--space-4) var(--space-6); font-size: var(--text-base); }
+
+/* ---- panels: bordered, not floating ----
+ * With a hairline grid behind them, a soft drop shadow reads as dirt on the
+ * lens. The panel cue is now a lit 1px edge plus a flat surface; the shadow is
+ * reserved for the one element that genuinely comes forward (the primary
+ * button) and for transient layers (toast). */
+.card {
+  background: var(--paper-1);
+  border-radius: var(--radius-lg);
+  border: var(--rule);
+  padding: var(--space-5);
+  /* One hairline of light along the top edge — the cheapest honest stand-in for
+   * "this surface is closer to the light than the page". */
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.03) inset;
+}
+.card + .card { margin-top: var(--space-4); }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.card-head .sub { font-size: var(--text-sm); color: var(--ink-3); }
+
+.tag {
+  display: inline-block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: oklch(76% 0.145 78 / 0.14);
+  color: var(--accent);
+  font-family: var(--font-mono-stack);
+}
+
+/* ---- home ---- */
+.hero { padding-block: var(--space-6) var(--space-7); }
+.hero h1 { max-width: 18ch; }
+.hero .lede { margin-top: var(--space-4); color: var(--ink-2); font-size: var(--text-lg); max-width: 34rem; }
+
+.cta-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--space-4); }
+
+.metric { display: flex; flex-direction: column; gap: var(--space-1); }
+.metric .v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.metric .k { font-size: var(--text-sm); color: var(--ink-3); }
+
+/* ---- home: the console ----
+ * Two columns on desktop, control on the left at a deliberate 1.15fr so it
+ * out-weighs the prose beside it; one column on a phone with the control
+ * first. The control column is a panel with a lit top edge; the prose column
+ * deliberately is NOT a panel — giving equal treatment to "what this is" and
+ * "how to start it" is the layout decision this restructure exists to undo. */
+.console {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+  padding-top: var(--space-5);
+}
+.console-main {
+  background: var(--paper-1);
+  border: var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.03) inset;
+  padding: var(--space-6);
+}
+.console-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+/* The headline is now a verb on a control, not a slogan — so it drops two
+ * steps. At the old display size it would shout over the button it labels. */
+.console-main h1 {
+  font-size: var(--text-2xl);
+  margin-top: var(--space-1);
+  letter-spacing: -0.02em;
+}
+.console-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.console-go { width: 100%; }
+.console-hint {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+}
+
+/* duration selector: number over unit, both in mono so 15/25/45 line up */
+.console .seg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+.console .seg button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  min-height: 3.25rem;
+}
+.console .seg .seg-n { font-family: var(--font-mono); font-size: var(--text-lg); font-variant-numeric: tabular-nums; line-height: 1; }
+.console .seg .seg-u { font-size: var(--text-xs); opacity: 0.72; }
+
+.console-aside { padding-top: var(--space-2); }
+.console-aside h2 { font-size: var(--text-xl); }
+.console-aside > p { margin-top: var(--space-3); color: var(--ink-2); max-width: 34rem; }
+.console-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: var(--rule);
+}
+.console-facts .k {
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  margin-bottom: var(--space-3);
+}
+.console-facts ul { display: grid; gap: var(--space-2); color: var(--ink-2); font-size: var(--text-sm); }
+.console-facts li { padding-left: var(--space-4); position: relative; }
+.console-facts li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 6px;
+  height: 1px;
+  background: var(--accent);
+}
+.console-install { margin-top: var(--space-5); }
+
+/* ---- warm-up: the training stage ---- */
+.stage {
+  position: relative;
+  /* Square, and bounded by BOTH axes. An unconstrained 34rem square plus the
+   * HUD plus the answer buttons overflows a 375×667 iPhone SE, and the buttons
+   * are what end the block — a stage that pushes them off-screen makes the
+   * warm-up unfinishable on the smallest phone still in use. */
+  width: min(34rem, 100%, 44dvh);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border-radius: var(--radius-lg);
+  background: var(--paper-1);
+  border: var(--rule);
+  /* A faint inner lattice makes the stage read as a screen the stimuli appear
+   * on, rather than a card with two shapes floating in it. Radial mask keeps it
+   * centred so the corners don't compete with the peripheral stimulus. */
+  background-image:
+    linear-gradient(to right, oklch(100% 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(100% 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 100%);
+  mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 100%);
+  overflow: hidden;
+  /* the whole stage is the hit target: one tap answers the trial */
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  border: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: inherit;
+  font: inherit;
+}
+.stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+.stage:disabled { cursor: default; }
+
+.stage-inner { position: absolute; inset: 0; }
+
+/* central stimulus — big, unmistakable */
+.central {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 30%;
+  height: 30%;
+  display: grid;
+  place-items: center;
+}
+.central svg, .periphery svg { width: 100%; height: 100%; display: block; }
+
+/* peripheral stimulus — the inline style sets `top` (centre minus a radius in
+ * stage-height percent) and `rotate` for the bearing. No CSS `translate` here:
+ * an inline `transform` would clobber it, and the negative margins are what
+ * centre the element on its `left`/`top` anchor point. Those margins resolve
+ * against the stage *width*, which equals its height because the stage is a
+ * forced square — so the two axes stay in agreement. */
+.periphery {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -9.5%;
+  margin-top: -9.5%;
+  width: 19%;
+  height: 19%;
+  display: grid;
+  place-items: center;
+}
+
+.verdict {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono-stack);
+  pointer-events: none;
+}
+.verdict.ok { color: var(--good); }
+.verdict.no { color: var(--bad); }
+
+.hud { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4); }
+.hud .cell { display: flex; flex-direction: column; gap: 2px; }
+.hud .cell .k { font-size: var(--text-xs); color: var(--ink-3); letter-spacing: 0.05em; }
+.hud .cell .v { font-family: var(--font-mono); font-size: var(--text-lg); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* Quit confirmation. The accent rules on the left so the dialog reads as an
+ * interruption in the instrument panel rather than another card. */
+.quit-ask { border-color: var(--rule-accent); }
+.quit-ask .card-head h2 { color: var(--accent); }
+/* The two answers are not interchangeable, so they must not look alike: one
+ * reads as the affirmative action, the other as destructive. */
+.quit-keep { box-shadow: 0 0 0 1px oklch(76% 0.145 78 / 0.42), var(--shadow-glow); }
+.quit-drop { color: var(--bad); border-color: oklch(70% 0.09 25 / 0.4); }
+.quit-drop:hover { border-color: oklch(70% 0.09 25 / 0.7); color: var(--bad); }
+.spacer { flex: 1 1 auto; }
+
+.keys { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  background: var(--paper-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+.key kbd {
+  font-family: var(--font-mono-stack);
+  font-size: var(--text-xs);
+  background: var(--paper-3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--ink-1);
+}
+
+/* ---- focus block ---- */
+.timer-face {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding-block: var(--space-7);
+  /* Crosshair behind the clock: two hairlines meeting at the centre, which is
+   * where the eye already is. It costs two gradients and makes the largest
+   * empty surface on the page stop being a void. */
+  background-image:
+    linear-gradient(to right, transparent calc(50% - 0.5px), oklch(100% 0 0 / 0.06) calc(50% - 0.5px), oklch(100% 0 0 / 0.06) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), oklch(100% 0 0 / 0.06) calc(50% - 0.5px), oklch(100% 0 0 / 0.06) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+.clock {
+  font-family: var(--font-mono-stack);
+  font-size: var(--text-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--ink-1);
+}
+.clock.paused { color: var(--ink-3); }
+.drift-chip {
+  margin-top: var(--space-4);
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono-stack);
+  color: var(--warn);
+  background: oklch(74% 0.15 58 / 0.12);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+}
+.drift-chip.calm { color: var(--good); background: oklch(72% 0.13 152 / 0.12); }
+
+.note {
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+  border-left: 2px solid oklch(100% 0 0 / 0.14);
+  padding-left: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--paper-2); border-radius: var(--radius-pill); }
+.seg button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-3);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.seg button:hover { color: var(--ink-1); }
+.seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.seg button[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); }
+
+/* ---- report ---- */
+.advice-list { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.advice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+  background: var(--paper-1);
+  border-radius: var(--radius-md);
+  border: var(--rule);
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.03) inset;
+  padding: var(--space-4);
+}
+.advice .tag { margin-top: 2px; }
+
+/* hand-built SVG chart: 7-day focus bars. ponytail: one SVG, no chart lib. */
+.bars { display: flex; align-items: flex-end; gap: var(--space-2); height: 7rem; margin-top: var(--space-4); }
+.bar-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: var(--space-2); }
+.bar-track { flex: 1 1 auto; display: flex; align-items: flex-end; }
+.bar {
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--accent-dim);
+  min-height: 3px;
+  transition: height var(--dur-slow) var(--ease-out);
+}
+.bar.today { background: var(--accent); }
+.bar.empty { background: oklch(100% 0 0 / 0.08); }
+.bar-x { font-size: var(--text-xs); color: var(--ink-3); text-align: center; font-family: var(--font-mono-stack); }
+
+.decay { display: flex; gap: 3px; margin-top: var(--space-3); }
+.decay i {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.25;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+.table { width: 100%; border-collapse: collapse; margin-top: var(--space-4); font-size: var(--text-sm); }
+.table th, .table td { text-align: left; padding: var(--space-2) var(--space-3); border-bottom: 1px solid oklch(100% 0 0 / 0.07); }
+.table th { color: var(--ink-3); font-weight: 400; font-size: var(--text-xs); letter-spacing: 0.05em; }
+.table td.num { text-align: right; font-family: var(--font-mono-stack); font-variant-numeric: tabular-nums; }
+.table tr:last-child td { border-bottom: 0; }
+
+.empty-state { padding-block: var(--space-8); text-align: center; color: var(--ink-3); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  /* clear the home indicator so the acknowledgement is actually readable */
+  bottom: max(var(--space-5), env(safe-area-inset-bottom));
+  translate: -50% 0;
+  z-index: 40;
+  background: var(--paper-3);
+  color: var(--ink-1);
+  border-radius: var(--radius-pill);
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-lift);
+  animation: rise var(--dur-mid) var(--ease-out);
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.list-reset { list-style: none; margin: 0; padding: 0; }
+.hr { height: 1px; background: oklch(100% 0 0 / 0.08); border: 0; margin-block: var(--space-6); }
+
+/* ---- answer buttons: the primary control on touch ----
+ * 44px is the smallest reliably tappable target (WCAG 2.5.5 / iOS HIG both land
+ * there). They sit below the stage because that is where a thumb rests when
+ * holding a phone one-handed — the stage halves are unreachable up there. */
+.answer-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-4); }
+.answer {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: 3.5rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid oklch(100% 0 0 / 0.14);
+  background: var(--paper-2);
+  color: var(--ink-1);
+  /* A trial is answered by a fast tap; any 300ms delay here is the difference
+   * between a measured reaction time and a measured rubber-band latency. */
+  touch-action: manipulation;
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.answer:active { transform: scale(0.97); background: var(--paper-3); }
+.answer:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.answer[disabled] { opacity: 0.4; }
+.answer .answer-k { font-size: var(--text-lg); font-weight: 500; letter-spacing: 0.02em; }
+.answer .answer-hint { font-size: var(--text-xs); color: var(--ink-3); font-family: var(--font-mono-stack); }
+.answer.same { border-color: oklch(72% 0.13 152 / 0.34); }
+.answer.diff { border-color: oklch(74% 0.15 58 / 0.34); }
+
+/* Keyboard hints are noise on a device with no keyboard. */
+.touch-only { display: none; }
+
+/* ---- gate 34/50/51/52 ---- */
+@media (max-width: 44rem) {
+  .grid-2 { grid-template-columns: 1fr; }
+  /* One column, control first — the CSS grid order is already control-first,
+   * so this only has to drop the second track. */
+  .console { grid-template-columns: 1fr; gap: var(--space-6); }
+  .console-main { padding: var(--space-5); }
+  .console-aside { padding-top: 0; }
+  .console-facts { grid-template-columns: 1fr; gap: var(--space-5); }
+  .card-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+  .advice { grid-template-columns: 1fr; }
+  h1 { font-size: var(--text-2xl); }
+  .wrap, .narrow { width: min(68rem, 100% - var(--space-4)); }
+}
+
+/* Coarse pointer = a finger, not a mouse. Everything here is about reach and
+ * about not letting the OS scroll or zoom steal a fast tap. */
+@media (pointer: coarse) {
+  .touch-only { display: inline; }
+  .kbd-hide-touch { display: none; }
+
+  .btn, .tab, .seg button { min-height: 2.75rem; }
+  .stage { touch-action: none; }
+  .answer-row { margin-top: var(--space-5); }
+  .keys { display: none; }
+}
+
+/* Short viewports (landscape phone, or a small phone where browser chrome eats
+ * the height): the stage is square, so it competes with the HUD above and the
+ * answer buttons below for the same vertical budget. The buttons win — they are
+ * the only way to finish a trial. */
+@media (max-height: 46rem) {
+  .stage { width: min(34rem, 100%, 38dvh); }
+  .hud { margin-bottom: var(--space-3); gap: var(--space-3); }
+  .answer { min-height: 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 120ms !important;
+  }
+}
+/* Training library */
+.nav-in { background: oklch(99% 0.006 92 / .92); border-color: oklch(35% .025 150 / .14); box-shadow: 0 6px 24px oklch(30% .04 150 / .08); }
+.tab { color: var(--ink-2); }
+.tab:hover { color: var(--ink-1); background: oklch(50% .08 150 / .08); }
+.tab[aria-current='page'] { background: var(--accent); color: var(--on-accent); }
+.daily-card { margin: var(--space-5) auto 0; padding: var(--space-5); display:flex; justify-content:space-between; align-items:center; gap:var(--space-4); border:var(--rule); border-radius:var(--radius-lg); background:linear-gradient(120deg, oklch(95% .035 150), var(--paper-1) 72%); }
+.daily-card h2 { margin:var(--space-2) 0; }
+.daily-card p,.game-card p,.legacy-card p { color:var(--ink-2); }
+.game-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-4); }
+.game-card { min-height:190px; display:flex; flex-direction:column; align-items:flex-start; }
+.game-index { color:var(--accent-dim); font:600 var(--text-sm) var(--font-mono); }
+.game-card h2 { margin:var(--space-3) 0 var(--space-2); }
+.game-foot { display:flex; justify-content:space-between; align-items:center; gap:var(--space-3); width:100%; margin-top:auto; padding-top:var(--space-4); color:var(--ink-3); font-size:var(--text-sm); }
+.legacy-card { margin-top:var(--space-5); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--space-3); }
+.training-report { margin-bottom:var(--space-5); }
+.training-report .card > p { color:var(--ink-2); }
+.game-stage { padding-top:var(--space-5); }
+.game-stage .card { text-align:center; }
+.game-stage .card-head { text-align:left; }
+.schulte-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; width:min(100%,420px); margin:var(--space-5) auto; }
+.schulte-cell { min-width:0; aspect-ratio:1; border:var(--rule); border-radius:var(--radius-md); background:var(--paper-2); color:var(--ink-1); font:600 var(--text-lg) var(--font-mono); cursor:pointer; }
+.schulte-cell:hover { border-color:var(--accent); background:oklch(93% .05 150); }
+.track-board { width:min(100%,360px); aspect-ratio:1; margin:var(--space-4) auto; display:grid; grid-template-columns:repeat(3,1fr); place-items:center; background:var(--paper-2); border-radius:var(--radius-lg); }
+.track-dot { width:44px; height:44px; border:0; border-radius:50%; background:transparent; }
+.track-dot.active { background:var(--accent); box-shadow:0 0 0 9px oklch(70% .15 150 / .16); cursor:pointer; }
+.stimulus-wrap { display:grid; justify-items:center; gap:var(--space-4); padding:var(--space-5); }
+.stimulus { min-height:150px; display:grid; place-items:center; font-size:clamp(4rem,18vw,8rem); color:var(--ink-1); }
+.stimulus.go { color:var(--accent-dim); }
+.import-button { display:inline-flex; position:relative; overflow:hidden; cursor:pointer; }
+.import-button input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+@media (max-width:640px) { .daily-card { align-items:flex-start; flex-direction:column; } .game-grid { grid-template-columns:1fr; } .game-card { min-height:170px; } .game-foot .btn { padding-inline:var(--space-3); } }
+.calendar-title { margin-top:var(--space-5); margin-bottom:var(--space-3); font-size:var(--text-base); }
+.training-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+.training-calendar span { display:grid; place-items:center; min-height:34px; border-radius:var(--radius-sm); color:var(--ink-3); background:var(--paper-2); font:var(--text-xs) var(--font-mono); }
+.training-calendar span.active { background:var(--accent); color:var(--on-accent); }
+.result-card { margin-bottom:var(--space-5); }
+.result-card p { color:var(--ink-2); }
+.result-detail { margin-top:var(--space-2); margin-bottom:var(--space-4); font-size:var(--text-sm); }
+.daily-copy { width:100%; }
+.daily-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:var(--space-4); }
+.level-picker { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 var(--space-4); color:var(--ink-2); }
+.level-picker button { border:var(--rule); border-radius:var(--radius-pill); padding:8px 14px; color:var(--ink-2); background:var(--paper-1); cursor:pointer; font:inherit; }
+.level-picker button.selected { background:var(--accent); color:var(--on-accent); border-color:transparent; }
+.schulte-grid { grid-template-columns:repeat(var(--grid-size),1fr); }
+/* Light-surface adjustments for components originally drawn on the dark canvas. */
+.tab:hover { background: oklch(35% .025 150 / .06); }
+.foot { border-color: oklch(35% .025 150 / .14); }
+.btn.ghost { border-color: oklch(35% .025 150 / .2); }
+.btn.ghost:hover { border-color: oklch(35% .025 150 / .34); }
+.console-main,.card { box-shadow: 0 1px 0 oklch(100% 0 0 / .65) inset; }
+.console-grid,.bar.empty { background-color: oklch(35% .025 150 / .06); }
+.table th,.table td { border-color: oklch(35% .025 150 / .13); }
+.hr { background: oklch(35% .025 150 / .13); }
