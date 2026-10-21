@@ -317,7 +317,7 @@ export default function Page() {
           </>
         )}
 
-        {tab === 'training' && <TrainingLab initialModule={preferredModule} onSave={(w) => { const all = [...workouts, w]; setWorkouts(all); setPreferredModule(null); save({ v: 1, blocks, workouts: all }); }} onLegacy={() => { setTab('run'); startDay(); }} />}
+        {tab === 'training' && <TrainingLab initialModule={preferredModule} onSave={(w) => { const all = [...workouts, w]; setWorkouts(all); setPreferredModule(null); save({ v: 1, blocks, workouts: all }); }} onLegacy={(mode) => { setTab('run'); if (mode === 'focus') { setBlock(newBlock(targetMin)); setPhase('focus'); } else startDay(); }} />}
 
         {tab === 'report' && <><TrainingReport workouts={workouts} blocks={blocks} /><Report blocks={blocks} onGoRun={() => setTab('run')} /></>}
 

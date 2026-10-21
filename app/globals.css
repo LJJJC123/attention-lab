@@ -670,3 +670,10 @@ main { flex: 1; padding-block: var(--space-7) var(--space-8); }
 .console-grid,.bar.empty { background-color: oklch(35% .025 150 / .06); }
 .table th,.table td { border-color: oklch(35% .025 150 / .13); }
 .hr { background: oklch(35% .025 150 / .13); }
+.game-guide { margin-top:var(--space-3); border-top:var(--rule); padding-top:var(--space-3); color:var(--ink-2); font-size:var(--text-sm); }
+.game-guide summary { cursor:pointer; color:var(--accent); font-weight:600; }
+.game-guide p { margin-top:var(--space-2); line-height:1.65; }
+.game-instructions { margin:0 auto var(--space-4); padding:var(--space-3) var(--space-4); max-width:44rem; border-radius:var(--radius-md); background:var(--paper-2); text-align:left; }
+.game-instructions strong { color:var(--accent); font-size:var(--text-sm); }
+.game-instructions p { margin-top:4px; color:var(--ink-2); font-size:var(--text-sm); }
+.game-card { height:100%; }
